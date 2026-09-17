@@ -1,34 +1,33 @@
 """
 ENV III Sensor (SHT30 + QMP6988) real-time display
-M5Stack CoreS3 (K128) — Port B (I2C, Grove)
+M5Stack CoreS3 (K128) — Port B (I2C, Grove: SDA=G9, SCL=G8)
 UIFlow2 / MicroPython — no user interaction required
 
-SHT30  : temperature + humidity, I2C address 0x44
-QMP6988: barometric pressure,     I2C address 0x70
+Verified against m5stack/uiflow-micropython:
+  m5stack/libs/unit/env.py            -> ENVUnit class, ENV_III=3
+  examples/unit/env/env_cores3.py     -> ENVUnit(i2c=..., type=...) usage
+  docs.m5stack.com CoreS3 pinout      -> Port B = SDA G9, SCL G8
 """
 
+import os, sys, io
+import time
 import M5
 from M5 import *
-from unit import SHT30Unit, QMP6988Unit
-import time
+from hardware import *
+from unit import ENVUnit
 
 M5.begin()
 
-# PORT B on CoreS3 is the Grove I2C port; the Unit helper handles the
-# pin mapping for named ports. Both sensors share the same I2C bus.
-sht30 = None
-qmp = None
-try:
-    sht30 = SHT30Unit(PORTB)
-except Exception:
-    sht30 = None
-
-try:
-    qmp = QMP6988Unit(PORTB)
-except Exception:
-    qmp = None
-
 Widgets.fillScreen(0x222222)
+
+# Port B on CoreS3: SDA = GPIO9, SCL = GPIO8
+i2c0 = I2C(1, scl=Pin(8), sda=Pin(9), freq=100000)
+
+env3 = None
+try:
+    env3 = ENVUnit(i2c=i2c0, type=3)  # type=3 -> ENV III (SHT30 + QMP6988)
+except Exception:
+    env3 = None
 
 title_label = Widgets.Label("ENV III Sensor", 20, 10, 1.0, 0xFFFFFF, 0x222222, Widgets.FONTS.DejaVu18)
 
@@ -38,37 +37,21 @@ pres_label = Widgets.Label("Pressure: -- hPa", 20, 160, 1.0, 0xFFCC66, 0x222222,
 
 status_label = Widgets.Label("", 20, 210, 1.0, 0xFF5555, 0x222222, Widgets.FONTS.DejaVu18)
 
-missing = []
-if sht30 is None:
-    missing.append("SHT30")
-if qmp is None:
-    missing.append("QMP6988")
-if missing:
-    status_label.setText("Not detected: " + ", ".join(missing))
+if env3 is None:
+    status_label.setText("ENV III not detected on Port B")
 
 while True:
     M5.update()
-    errors = []
-
-    if sht30 is not None:
+    if env3 is not None:
         try:
-            temperature = sht30.get_temperature()
-            humidity = sht30.get_humidity()
+            temperature = env3.read_temperature()
+            humidity = env3.read_humidity()
+            pressure = env3.read_pressure()  # already returned in hPa
+
             temp_label.setText("Temp: %.1f C" % temperature)
             hum_label.setText("Humidity: %.1f %%" % humidity)
-        except Exception as e:
-            errors.append("SHT30: %s" % str(e))
-
-    if qmp is not None:
-        try:
-            pressure = qmp.get_pressure() / 100.0  # Pa -> hPa
             pres_label.setText("Pressure: %.1f hPa" % pressure)
+            status_label.setText("")
         except Exception as e:
-            errors.append("QMP6988: %s" % str(e))
-
-    if errors:
-        status_label.setText(" | ".join(errors))
-    elif not missing:
-        status_label.setText("")
-
+            status_label.setText("Read error: %s" % str(e))
     time.sleep_ms(500)
