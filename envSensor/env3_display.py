@@ -13,7 +13,7 @@ import os, sys, io
 import time
 import M5
 from M5 import *
-from hardware import *
+from machine import I2C, Pin
 from unit import ENVUnit
 
 M5.begin()
@@ -21,7 +21,7 @@ M5.begin()
 Widgets.fillScreen(0x222222)
 
 # Port B on CoreS3: SDA = GPIO9, SCL = GPIO8
-i2c0 = I2C(1, scl=Pin(8), sda=Pin(9), freq=100000)
+i2c0 = I2C(0, scl=Pin(8), sda=Pin(9), freq=100000)
 
 env3 = None
 try:
