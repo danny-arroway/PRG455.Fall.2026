@@ -1,0 +1,7 @@
+# Ignore all dotfiles and hidden folders on all machines
+.*
+
+# Keep essential Git configuration tracked
+!.gitignore
+!.gitattributes
+!.github/
